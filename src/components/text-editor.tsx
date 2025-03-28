@@ -4,7 +4,7 @@ import {setDoc, doc, getDoc, onSnapshot} from 'firebase/firestore';
 import {db} from '../firebase-config.ts';
 import 'react-quill/dist/quill.snow.css';
 import "../App.css";
-
+import {throttle} from 'lodash';
 
 export const TextEditor = () => {
     const quillRef = useRef<any>(null);
@@ -14,7 +14,7 @@ export const TextEditor = () => {
 
     const documentationRef = doc(db, "documents", "sample-doc");
 
-    const saveContent = () => {
+    const saveContent = throttle(() => {
         if(quillRef.current && isLocalChange.current) {
             const content = quillRef.current.getEditor().getContents();
             console.log("Saving content to DB: ", content);
@@ -25,7 +25,7 @@ export const TextEditor = () => {
 
             isLocalChange.current = false;
         }
-    };
+    }, 1000);
 
     useEffect(() => {
         if(quillRef.current){
@@ -53,6 +53,9 @@ export const TextEditor = () => {
                     if(!isEditing){
                         const editor = quillRef.current.getEditor();
                         const currentCursorPosition = editor.getSelection()?.index || 0;
+
+                        editor.setContents(newContent, "silent");
+                        editor.setSelection(currentCursorPosition);
                     }
                 }
             });
@@ -71,7 +74,12 @@ export const TextEditor = () => {
                     setTimeout(() => setIsEditing(false), 5000);
 
                 }
-            })
+            });
+
+            return () => {
+                unsubscribe();
+                editor.off("text-change");
+            }
         }
     }, []);
 
